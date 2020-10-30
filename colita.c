@@ -1,5 +1,6 @@
+
 #include "colita.h"
-#include <avr/io.h>
+#include <xc.h>
 
 
 void inicie_colita(Colita *p_cola) //Aqui inicio el arreglo de la cola
@@ -31,12 +32,13 @@ char colocar_val_colita(Colita *p_cola, DATOCOLA data) //Añadir datos al arregl
     }
 }
 
-DATOCOLA obtener_val_colita(Colita *val_cola)
+DATOCOLA obtener_val_colita(Colita *p_cola)
 {
+    DATOCOLA valor_cola;
     //Se obtiene dato de la cola
     if(!(colita_empty(p_cola))) 
     {
-        p_cola->cola_array[p_cola->out] = data;
+        valor_cola = p_cola->cola_array[p_cola->out];
         p_cola->out++;
         p_cola->weight--;
     }
@@ -44,7 +46,7 @@ DATOCOLA obtener_val_colita(Colita *val_cola)
     {
         return ERROR; //Cola llena
     }
-
+    return valor_cola;
     //Verificar si el apuntador de entrada esta fuera del arreglo de la cola
     if((p_cola->out) >= TAM)
     {
@@ -58,7 +60,7 @@ int tam_colita(Colita *p_cola) //Aqui se conocen cuantos datos hay en el arreglo
     return (p_cola->weight);
 }
 
-int colita_full(Colita *p_cola); //Aqui se conoce si el arreglo de cola esta lleno
+int colita_full(Colita *p_cola) //Aqui se conoce si el arreglo de cola esta lleno
 {
     if((p_cola->weight) >= TAM)
     {
@@ -70,7 +72,7 @@ int colita_full(Colita *p_cola); //Aqui se conoce si el arreglo de cola esta lle
     }
 }
 
-int colita_empty(Colita *p_cola); //Aqui se conoce si el arreglo de cola esta vacio
+int colita_empty(Colita *p_cola) //Aqui se conoce si el arreglo de cola esta vacio
 {
     if((p_cola->weight) <= 0)
     {
@@ -80,5 +82,4 @@ int colita_empty(Colita *p_cola); //Aqui se conoce si el arreglo de cola esta va
     {
         return GOOD;
     }
-
 }
