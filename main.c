@@ -22,16 +22,38 @@
 #include "mcc_generated_files/device_config.h"
 #include "mcc_generated_files/uart1.h"
 #include "colita.h"
+#include "serialutility.h"
 
 void main(void)
 {
-    volatile uint8_t rxData;
+    //volatile uint8_t rxData;
     Colita p_cola;
-    int posicion = 0x03; 
+    Commands com;
+    //int posicion = 0x03; 
     // Initialize the device
     SYSTEM_Initialize();
     inicie_colita(&p_cola);
-    while(1)
+    Inicializar_commands(&com);
+
+    while(1){
+      if(UART1_is_rx_ready() && !com->controlserial){
+        com->input= UART1_Read();
+        Read_commands(&com, &p_cola);
+      }
+      if(UART1_is_tx_ready() && com->controlserial){
+        if(com->error){
+          error(&com); 
+        }
+        if(com->ok){
+          ok(&com); 
+        }
+        if(!colita_empty(&p_cola)){
+          mandarcola(&com,&p_cola);
+        }
+      }
+
+    }
+    /*while(1)
     {
         // Logic to echo received data
         if(UART1_is_rx_ready())
@@ -44,5 +66,5 @@ void main(void)
                 UART1_Write(obtener_val_colita(&p_cola)); 
             }
         }
-    }
+    }*/
 }

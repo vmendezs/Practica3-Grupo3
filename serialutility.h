@@ -30,11 +30,20 @@ struct Commands{
 	char add[4];
 	short numcount;
 	short addcount;
-	int error;
-	int ok;
+	short error;
+	short errorcount;
+	short ok;
+	short okcount;
+	short numconvertido;
+	short controlserial;
+	short serialcount;
 };
 
 void Inicializar_commands(Commands *com);
+void error(Commands *com);
+void ok(Commands *com);
+void convertir(Commands *com);
+void mandarcola(Commands *com, Colita *p_cola);
 void Read_commands(Commands *com, Colita *p_cola); //Maquina de estados de la comunicacion serial
 
 	#ifdef __cplusplus

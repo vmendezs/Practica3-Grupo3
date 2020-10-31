@@ -6,8 +6,79 @@ void Inicializar_commands(Commands *com){
     com->state= ESTADO0;
     com->addcount= 0;
     com->error= 0;
+    com->errorcount= 0;
     com->numcount= 0;
     com->ok=0;
+    com->okcount= 0;
+    com->controlserial=0;
+    com->numconvertido=0;
+    com->serialcount=0;
+}
+
+void error(Commands *com){
+    if(com->errorcount==0){
+        UART1_Write('E');
+        com->errorcount= com->errorcount+1;
+    }
+    if(com->errorcount==1){
+        UART1_Write('R');
+        com->errorcount= com->errorcount+1;
+    }
+    if(com->errorcount==2){
+        UART1_Write('R');
+        com->errorcount= com->errorcount+1;
+    }
+    if(com->errorcount==3){
+        UART1_Write('\n');
+        com->errorcount=0;
+        com->error= 0;
+        com->controlserial=0;
+    }
+}
+
+void ok(Commands *com){
+    if(com->okcount==0){
+        UART1_Write('O');
+        com->okcount= com->okcount+1;
+    }
+    if(com->errorcount==1){
+        UART1_Write('K');
+        com->okcount= com->okcount+1;
+    }
+    if(com->okcount==2){
+        UART1_Write('\n');
+        com->okcount=0;
+        com->ok= 0;
+        com->controlserial=0;
+    }
+}
+
+void convertir(Commands *com){
+    short x,y;
+    if(com->num[0]>47 && com->num[0]<58){
+        x= com->num - 48;
+    }
+    else if(com->num[0]>64 && com->num[0]<71){
+        x= com->num - 55;
+    }
+    if(com->num[1]>47 && com->num[1]<58){
+        y= com->num - 48;
+    }
+    else if(com->num[1]>64 && com->num[1]<71){
+        y= com->num - 55;
+    }
+    com->numconvertido= (y*16)+x;
+}
+
+void mandarcola(Commands *com, Colita *p_cola){
+    if(com->serialcount < 2*(com->numconvertido)){
+        UART1_Write(obtener_val_colita(&p_cola));
+        com->serialcount= com->serialcount + 1;
+    }
+    else{
+        com->serialcount=0;
+        com->controlserial=0;
+    }
 }
 
 void Read_commands(Commands *com, Colita *p_cola){
@@ -60,12 +131,23 @@ void Read_commands(Commands *com, Colita *p_cola){
         case ESTADO3: //
             if((com->input)=='\n'){
                 //Realizar y responder RB
+                com->num[]={'0','1'};
+                convertir(&com);
+                com->controlserial=1;
                 com->state=ESTADO0;
                 com->addcount= 0;
                 break;
             }
-            com->add[com->addcount]= com->input;
-            com->addcount++;
+            if(com->addcount<4){
+                com->add[com->addcount]= com->input;
+                com->addcount++;  
+            }
+            else{
+                com->error= 1;
+                com->controlserial=1;
+                com->addcount=0;
+                com->state=ESTADO0;
+            }  
         break;
 
         case ESTADO4: // 
@@ -74,8 +156,16 @@ void Read_commands(Commands *com, Colita *p_cola){
                 com->addcount= 0;
                 break;
             }
-            com->add[com->addcount]= com->input;
-            com->addcount++;   
+            if(com->addcount<4){
+                com->add[com->addcount]= com->input;
+                com->addcount++;  
+            }
+            else{
+                com->error= 1;
+                com->controlserial=1;
+                com->addcount=0;
+                com->state=ESTADO0;
+            }    
         break;
     
         case ESTADO5: // 
@@ -84,8 +174,16 @@ void Read_commands(Commands *com, Colita *p_cola){
                 com->addcount= 0;
                 break;
             }
-            com->add[com->addcount]= com->input;
-            com->addcount++;   
+            if(com->addcount<4){
+                com->add[com->addcount]= com->input;
+                com->addcount++;  
+            }
+            else{
+                com->error= 1;
+                com->controlserial=1;
+                com->addcount=0;
+                com->state=ESTADO0;
+            }   
         break;
 
         case ESTADO6: // 
@@ -94,27 +192,43 @@ void Read_commands(Commands *com, Colita *p_cola){
                 com->addcount= 0;
                 break;
             }
-            if(com->addount<4){
+            if(com->addcount<4){
                 com->add[com->addcount]= com->input;
                 com->addcount++;  
             }
             else{
                 com->error= 1;
+                com->controlserial=1;
                 com->addcount=0;
                 com->state=ESTADO0;
-                break;
             }  
         break;
     
-        case ESTADO7: // 
+        case ESTADO7: // Toca arreglar esta vaina
             if((com->input)=='\n'){
                 //Realiza RS
+                convertir(&com);
+                com->controlserial=1;
                 com->state=ESTADO0;
                 com->numcount= 0;
                 break;
             }
-            com->num[com->numcount]= com->input;
-            com->numcount++;   
+            if( !(com->input>47 && com->input<58) && !(com->input>64 && com->input<71)){
+                com->error=1;
+                com->numcount=0;
+                com->controlserial=1;
+                com->state=ESTADO0;
+            }
+            if(com->numcount<2){
+                com->num[com->numcount]= com->input;
+                com->numcount++; 
+            }
+            else{
+                com->error= 1;
+                com->numcount=0;
+                com->controlserial=1;
+                com->state=ESTADO0;
+            }   
         break;
 
         case ESTADO8: // 
@@ -122,6 +236,7 @@ void Read_commands(Commands *com, Colita *p_cola){
                 //Realiza WB
                 com->state=ESTADO0;
                 com->ok=1;
+                com->controlserial=1;
                 com->numcount= 0;
                 break;
             }
@@ -142,9 +257,9 @@ void Read_commands(Commands *com, Colita *p_cola){
             }
             else{
                 com->error= 1;
+                com->controlserial=1;
                 com->numcount=0;
                 com->state=ESTADO0;
-                break;
             } 
         break;
 
@@ -152,6 +267,7 @@ void Read_commands(Commands *com, Colita *p_cola){
             if((com->input)=='\n'){
                 //Realiza WS
                 com->ok=1;
+                com->controlserial=1;
                 com->state=ESTADO0;
                 com->numcount= 0;
                 break;
