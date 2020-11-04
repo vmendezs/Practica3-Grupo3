@@ -1,5 +1,6 @@
 #include "serialutility.h"
-#include <avr/io.h>
+#include "mcc_generated_files/uart1.h"
+#include <xc.h>
 #include "colita.h"
 
 void Inicializar_commands(Commands *com){
@@ -41,7 +42,7 @@ void ok(Commands *com){
         UART1_Write('O');
         com->okcount= com->okcount+1;
     }
-    if(com->errorcount==1){
+    if(com->okcount==1){
         UART1_Write('K');
         com->okcount= com->okcount+1;
     }
@@ -55,25 +56,25 @@ void ok(Commands *com){
 
 void convertir(Commands *com){
     short x,y;
-    if(com->num[0]>47 && com->num[0]<58){
-        x= com->num - 48;
+    if((short)com->num[0]>47 && (short)com->num[0]<58){
+        x= (short)com->num[0] - 48;
     }
-    else if(com->num[0]>64 && com->num[0]<71){
-        x= com->num - 55;
+    else if((short)com->num[0]>64 && (short)com->num[0]<71){
+        x= (short)com->num[0] - 55;
     }
-    if(com->num[1]>47 && com->num[1]<58){
-        y= com->num - 48;
+    if((short)com->num[1]>47 && (short)com->num[1]<58){
+        y= (short)com->num[1] - 48;
     }
-    else if(com->num[1]>64 && com->num[1]<71){
-        y= com->num - 55;
+    else if((short)com->num[1]>64 && (short)com->num[1]<71){
+        y= (short)com->num[1] - 55;
     }
     com->numconvertido= (y*16)+x;
 }
 
 void mandarcola(Commands *com, Colita *p_cola){
-    if(com->serialcount < 2*(com->numconvertido)){
-        UART1_Write(obtener_val_colita(&p_cola));
-        com->serialcount= com->serialcount + 1;
+    if(com->serialcount < (2*(com->numconvertido))){
+        UART1_Write(obtener_val_colita(p_cola));
+        com->serialcount = com->serialcount + 1;
     }
     else{
         com->serialcount=0;
@@ -90,7 +91,7 @@ void Read_commands(Commands *com, Colita *p_cola){
 				
                 com->state=ESTADO1;
             }
-            else if((com->tecla)=='W'){
+            else if((com->input)=='W'){
                 com->state=ESTADO2;
             }
             else
@@ -131,8 +132,9 @@ void Read_commands(Commands *com, Colita *p_cola){
         case ESTADO3: //
             if((com->input)=='\n'){
                 //Realizar y responder RB
-                com->num[]={'0','1'};
-                convertir(&com);
+                com->num[0]= '0';
+                com->num[1]= '1';
+                convertir(com);
                 com->controlserial=1;
                 com->state=ESTADO0;
                 com->addcount= 0;
@@ -207,7 +209,7 @@ void Read_commands(Commands *com, Colita *p_cola){
         case ESTADO7: // Toca arreglar esta vaina
             if((com->input)=='\n'){
                 //Realiza RS
-                convertir(&com);
+                convertir(com);
                 com->controlserial=1;
                 com->state=ESTADO0;
                 com->numcount= 0;
@@ -240,7 +242,7 @@ void Read_commands(Commands *com, Colita *p_cola){
                 com->numcount= 0;
                 break;
             }
-            colocar_val_colita(&p_cola, com->input);
+            colocar_val_colita(p_cola, com->input);
             //com->val[com->numcount]= com->input;
             //com->numcount++;   
         break;
@@ -275,15 +277,15 @@ void Read_commands(Commands *com, Colita *p_cola){
             if((com->input)==','){
                 break;
             }
-            if(!colita_full(&p_cola)){
-                colocar_val_colita(&p_cola,com->input);
+            if(!colita_full(p_cola)){
+                colocar_val_colita(p_cola,com->input);
             }
             else
             {
                 /* Guardar los datos en memoria 
                 y mover las 10 posiciones de add*/
-                inicie_colita(&p_cola);
-                colocar_val_colita(&p_cola,com->input);
+                inicie_colita(p_cola);
+                colocar_val_colita(p_cola,com->input);
             }
             
             //com->val[com->numcount]= com->input;
