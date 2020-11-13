@@ -1,88 +1,145 @@
 #include "serialutility.h"
 #include "mcc_generated_files/uart1.h"
+#include "mcc_generated_files/tmr0.h"
+#include "mcc_generated_files/drivers/i2c_simple_master.h"
 #include <xc.h>
-#include "colita.h"
+
+//Variables globales
+char auxseri[2];
+int count,times;
 
 void Inicializar_commands(Commands *com){
+    com->val_conv = 0;
+    com->add_conv[0] = 0;
     com->state= ESTADO0;
-    com->addcount= 0;
     com->error= 0;
-    com->errorcount= 0;
-    com->numcount= 0;
     com->ok=0;
-    com->okcount= 0;
+    com->banderaout=0;
     com->controlserial=0;
-    com->numconvertido=0;
+    com->veces=0;
     com->serialcount=0;
+    count= 0;
+    times=0;
 }
 
 void error(Commands *com){
-    if(com->errorcount==0){
+    if(count==0){
         UART1_Write('E');
-        com->errorcount= com->errorcount+1;
+        count++;
     }
-    if(com->errorcount==1){
+    if(count==1){
         UART1_Write('R');
-        com->errorcount= com->errorcount+1;
+        count++;
     }
-    if(com->errorcount==2){
+    if(count==2){
         UART1_Write('R');
-        com->errorcount= com->errorcount+1;
+        count++;
     }
-    if(com->errorcount==3){
+    if(count==3){
         UART1_Write('\n');
-        com->errorcount=0;
+        count=0;
         com->error= 0;
         com->controlserial=0;
     }
 }
 
 void ok(Commands *com){
-    if(com->okcount==0){
+    if(count==0){
         UART1_Write('O');
-        com->okcount= com->okcount+1;
+        count++;
     }
-    if(com->okcount==1){
+    if(count==1){
         UART1_Write('K');
-        com->okcount= com->okcount+1;
+        count++;
     }
-    if(com->okcount==2){
+    if(count==2){
         UART1_Write('\n');
-        com->okcount=0;
+        count = 0;
         com->ok= 0;
         com->controlserial=0;
     }
 }
 
-void convertir(Commands *com){
-    short x,y;
-    if((short)com->num[0]>47 && (short)com->num[0]<58){
-        x= (short)com->num[0] - 48;
+short convertir(char a, char b){
+    short x,y,z;
+    //convertir valores
+    if((short)b>47 && (short)b<58){
+        x= (short)b - 48;
     }
-    else if((short)com->num[0]>64 && (short)com->num[0]<71){
-        x= (short)com->num[0] - 55;
+    else if((short)b>64 && (short)b<71){
+        x= (short)b - 55;
     }
-    if((short)com->num[1]>47 && (short)com->num[1]<58){
-        y= (short)com->num[1] - 48;
+    if((short)a>47 && (short)a<58){
+        y= (short)a - 48;
     }
-    else if((short)com->num[1]>64 && (short)com->num[1]<71){
-        y= (short)com->num[1] - 55;
+    else if((short)a>64 && (short)a<71){
+        y= (short)a - 55;
     }
-    com->numconvertido= (y*16)+x;
+    
+    z= (y*16)+x;
+    return z;
 }
 
-void mandarcola(Commands *com, Colita *p_cola){
+void convertirASCII(Commands *com){
+    int high,low;
+    float auxi;
+    high = com->val_conv / 16;
+    low = com->val_conv - (high*16);
+    if(high>=0 && high<=9){
+        high = high + 48;
+    }
+    else if(high>=10 && high<=15){
+        high = high + 55;
+    }
+    else{
+        com->error= 1;
+        com->controlserial=1;
+    }
+    
+    if(low>=0 && low<=9){
+        low = low + 48;
+    }
+    else if(low>=10 && low<=15){
+        low = low + 55;
+    }
+    else{
+        com->error= 1;
+        com->controlserial=1;
+    }
+    com->output[0] = (char)high;
+    com->output[1] = (char)low;
+}
+
+void writeHEX(Commands *com){
+    if(count==0){
+        UART1_Write(com->output[0]);
+        count++;
+    }
+    if(count==1){
+        UART1_Write(com->output[1]);
+        count++;
+    }
+    if(count==2){
+        UART1_Write('\n');
+        count = 0;
+        com->controlserial=0;
+        com->banderaout=0;
+    }
+}
+
+/*void mandarcola(Commands *com){
     if(com->serialcount < (2*(com->numconvertido))){
-        UART1_Write(obtener_val_colita(p_cola));
+        //UART1_Write(obtener_val_colita(p_cola));
         com->serialcount = com->serialcount + 1;
     }
     else{
         com->serialcount=0;
         com->controlserial=0;
     }
-}
+}*/
 
-void Read_commands(Commands *com, Colita *p_cola){
+void Read_commands(Commands *com){
+    
     switch (com->state)
     {
         case ESTADO0:
@@ -131,165 +188,225 @@ void Read_commands(Commands *com, Colita *p_cola){
 
         case ESTADO3: //
             if((com->input)=='\n'){
-                //Realizar y responder RB
-                com->num[0]= '0';
-                com->num[1]= '1';
-                convertir(com);
-                com->controlserial=1;
+                com->add_conv[1] = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO0;
-                com->addcount= 0;
+                com->bandera = 3;
+                count= 0;
                 break;
             }
-            if(com->addcount<4){
-                com->add[com->addcount]= com->input;
-                com->addcount++;  
+            if(count < 2){
+                auxseri[count]= com->input;
+                count++;
+                if(auxseri[0] > 55){
+                    com->error= 1;
+                    com->controlserial=1;
+                    com->state=ESTADO0;
+                    count=0;
+                    break;
+                }
+                if(count == 2){
+                    com->add_conv[0]= convertir(auxseri[0], auxseri[1]);
+                }
+                break;
             }
+            else if(count >= 2 && count < 4 ){
+                    auxseri[count-2]= com->input;
+                    count++;
+                }
             else{
                 com->error= 1;
                 com->controlserial=1;
-                com->addcount=0;
+                count=0;
                 com->state=ESTADO0;
-            }  
+            }
         break;
 
         case ESTADO4: // 
             if((com->input)==','){
+                com->add_conv[1] = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO7;
-                com->addcount= 0;
+                count= 0;
                 break;
             }
-            if(com->addcount<4){
-                com->add[com->addcount]= com->input;
-                com->addcount++;  
+            if(count < 2){
+                auxseri[count]= com->input;
+                count++;
+                if(auxseri[0] > 55){
+                    com->error= 1;
+                    com->controlserial=1;
+                    com->state=ESTADO0;
+                    count=0;
+                    break;
+                }
+                if(count == 2){
+                    com->add_conv[0]= convertir(auxseri[0], auxseri[1]);
+                }
+                break;
             }
+            else if(count >= 2 && count < 4 ){
+                    auxseri[count-2]= com->input;
+                    count++;
+                }
             else{
                 com->error= 1;
                 com->controlserial=1;
-                com->addcount=0;
+                count=0;
                 com->state=ESTADO0;
-            }    
+            }
         break;
     
-        case ESTADO5: // 
+        case ESTADO5: // Se coloca el valor de la direccion de memoria
             if((com->input)==','){
+                com->add_conv[1] = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO8;
-                com->addcount= 0;
+                count= 0;
                 break;
             }
-            if(com->addcount<4){
-                com->add[com->addcount]= com->input;
-                com->addcount++;  
+            if(count < 2){
+                auxseri[count]= com->input;
+                count++;
+                if(auxseri[0] > 55){
+                    com->error= 1;
+                    com->controlserial=1;
+                    com->state=ESTADO0;
+                    count=0;
+                    break;
+                }
+                if(count == 2){
+                    com->add_conv[0]= convertir(auxseri[0], auxseri[1]);
+                }
+                break;
             }
+            else if(count >= 2 && count < 4 ){
+                    auxseri[count-2]= com->input;
+                    count++;
+                }
             else{
                 com->error= 1;
                 com->controlserial=1;
-                com->addcount=0;
+                count=0;
                 com->state=ESTADO0;
-            }   
+            }
         break;
 
-        case ESTADO6: // 
+        case ESTADO6: //Recepcion de direccion de inicio para escritura    
             if((com->input)==','){
+                com->add_conv[1] = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO9;
-                com->addcount= 0;
+                count= 0;
                 break;
             }
-            if(com->addcount<4){
-                com->add[com->addcount]= com->input;
-                com->addcount++;  
+            if(count < 2){
+                auxseri[count]= com->input;
+                count++;
+                if(auxseri[0] > 55){
+                    com->error= 1;
+                    com->controlserial=1;
+                    com->state=ESTADO0;
+                    count=0;
+                    break;
+                }
+                if(count == 2){
+                    com->add_conv[0]= convertir(auxseri[0], auxseri[1]);
+                }
+                break;
             }
+            else if(count >= 2 && count < 4 ){
+                    auxseri[count-2]= com->input;
+                    count++;
+                }
             else{
                 com->error= 1;
                 com->controlserial=1;
-                com->addcount=0;
+                count=0;
                 com->state=ESTADO0;
-            }  
+            }
         break;
     
-        case ESTADO7: // Toca arreglar esta vaina
+        case ESTADO7: //Lee "num" posiciones de memoria
             if((com->input)=='\n'){
-                //Realiza RS
-                convertir(com);
-                com->controlserial=1;
+                com->num = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO0;
-                com->numcount= 0;
+                com->bandera = 4;
+                count= 0;
                 break;
             }
-            if( !(com->input>47 && com->input<58) && !(com->input>64 && com->input<71)){
-                com->error=1;
-                com->numcount=0;
-                com->controlserial=1;
-                com->state=ESTADO0;
-            }
-            if(com->numcount<2){
-                com->num[com->numcount]= com->input;
-                com->numcount++; 
+            if(count < 2){
+                auxseri[count] = com->input;
+                count++;
             }
             else{
-                com->error= 1;
-                com->numcount=0;
+                count = 0;
                 com->controlserial=1;
+                com->error = 1;
                 com->state=ESTADO0;
-            }   
+            }
         break;
-
-        case ESTADO8: // 
+        case ESTADO8: // Se escribe el valor de esa dirección de memoria
             if((com->input)=='\n'){
                 //Realiza WB
+                com->val_conv = convertir(auxseri[0], auxseri[1]);
+                com->bandera = 1;
                 com->state=ESTADO0;
-                com->ok=1;
-                com->controlserial=1;
-                com->numcount= 0;
+                count= 0;
                 break;
             }
-            colocar_val_colita(p_cola, com->input);
-            //com->val[com->numcount]= com->input;
-            //com->numcount++;   
+            if(count < 2){
+                auxseri[count] = com->input;
+                count++;
+            }
+            else{
+                count = 0;
+                com->controlserial=1;
+                com->error = 1;
+                com->state=ESTADO0;
+            }
         break;
     
-        case ESTADO9: // 
+        case ESTADO9: //Recepcion de veces de escritura
             if((com->input)==','){
+                com->num = convertir(auxseri[0],auxseri[1]);
                 com->state=ESTADO10;
-                com->numcount= 0;
+                count= 0;
                 break;
             }
-            if(com->numcount<2){
-                com->num[com->numcount]= com->input;
-                com->numcount++;  
+            if(count < 2){
+                auxseri[count] = com->input;
+                count++;
+            }
+            else{
+                count = 0;
+                com->controlserial=1;
+                com->error = 1;
+                com->state=ESTADO0;
+            }
+        break;
+
+        case ESTADO10: //Escribe el "num" numero de veces en la memoria
+            if((com->input)=='\n'){
+                com->bandera = 2;
+                com->state=ESTADO0;
+                com->veces = 0;
+                count= 0;
+                break;
+            }
+            if(count < 2){
+                auxseri[count]= com->input;
+                count++;
+                if(count == 2){
+                    com->val_conv = convertir(auxseri[0], auxseri[1]);
+                    com->vec_val[times] = (short)times;
+                    times++;
+                    count= 0;
+                    break;
+                }
             }
             else{
                 com->error= 1;
                 com->controlserial=1;
-                com->numcount=0;
+                count=0;
                 com->state=ESTADO0;
-            } 
-        break;
-
-        case ESTADO10: // 
-            if((com->input)=='\n'){
-                //Realiza WS
-                com->ok=1;
-                com->controlserial=1;
-                com->state=ESTADO0;
-                com->numcount= 0;
-                break;
             }
-            if((com->input)==','){
-                break;
-            }
-            if(!colita_full(p_cola)){
-                colocar_val_colita(p_cola,com->input);
-            }
-            else
-            {
-                /* Guardar los datos en memoria 
-                y mover las 10 posiciones de add*/
-                inicie_colita(p_cola);
-                colocar_val_colita(p_cola,com->input);
-            }
-            
-            //com->val[com->numcount]= com->input;
-            //com->numcount++;   
         break;
 
         default:
