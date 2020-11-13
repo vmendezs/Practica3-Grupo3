@@ -54,7 +54,6 @@ typedef union{
         short vec_val[NUM];
         short vec_add[NUM];
         short num;
-        short veces;
         short add_conv[2];
         short error;
         short ok;

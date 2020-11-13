@@ -16,7 +16,6 @@ void Inicializar_commands(Commands *com){
     com->ok=0;
     com->banderaout=0;
     com->controlserial=0;
-    com->veces=0;
     com->serialcount=0;
     count= 0;
     times=0;
@@ -384,9 +383,8 @@ void Read_commands(Commands *com){
 
         case ESTADO10: //Escribe el "num" numero de veces en la memoria
             if((com->input)=='\n'){
-                com->bandera = 2;
+                com->bandera = 0;
                 com->state=ESTADO0;
-                com->veces = 0;
                 count= 0;
                 break;
             }
@@ -395,8 +393,7 @@ void Read_commands(Commands *com){
                 count++;
                 if(count == 2){
                     com->val_conv = convertir(auxseri[0], auxseri[1]);
-                    com->vec_val[times] = (short)times;
-                    times++;
+                    com->bandera = 2;
                     count= 0;
                     break;
                 }

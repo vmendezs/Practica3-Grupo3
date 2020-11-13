@@ -17,11 +17,17 @@ void procese_memoria(i2c1_address_t dir, Commands *com)
             /*if((com->add_conv[1] == 255) && (com->add_conv[0] < 127)){
                 com->add_conv[0] = com->add_conv[0] + 1;
             }*/
-            for(int i=0; i < (com->num); i++ ){
-                com->add_conv[1] = com->add_conv[1] + 1;
-                i2c_write1ByteRegister(dir, &(com->add_conv), com->vec_val[i]);
-                com->ok = 1;
-                com->controlserial=1;
+            if(com->num != 0){
+                i2c_write1ByteRegister(dir, &(com->add_conv), com->val_conv);
+                com->num--;
+                com->add_conv[1]++;
+                if(com->add_conv[1] == 0){
+                    com->add_conv[0] = com->add_conv[0]+1;
+                }
+                if(com->num == 0){
+                    com->ok = 1;
+                    com->controlserial=1;    
+                }  
             }
         break;
         case 3://Realiza RB
