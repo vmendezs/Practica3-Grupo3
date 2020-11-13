@@ -21,8 +21,9 @@ void procese_memoria(i2c1_address_t dir, Commands *com)
                 i2c_write1ByteRegister(dir, &(com->add_conv), com->val_conv);
                 com->num--;
                 com->add_conv[1]++;
-                if(com->add_conv[1] == 0){
+                if(com->add_conv[1] > 255){
                     com->add_conv[0] = com->add_conv[0]+1;
+                    com->add_conv[1]=0;
                 }
                 if(com->num == 0){
                     com->ok = 1;
